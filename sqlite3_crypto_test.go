@@ -6,8 +6,10 @@ package sqlite3
 import (
 	"bytes"
 	"database/sql"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -49,8 +51,10 @@ func TestCryptoKey(t *testing.T) {
 			t.Fatal(err)
 		}
 		var n int
-		if err := db.QueryRow("SELECT count(*) FROM t").Scan(&n); err == nil {
-			t.Errorf("read the encrypted database with %q", dsn)
+		err = db.QueryRow("SELECT count(*) FROM t").Scan(&n)
+		var sqliteErr Error
+		if !errors.As(err, &sqliteErr) || sqliteErr.Code != ErrNotADB {
+			t.Errorf("read the encrypted database with %q: want ErrNotADB, got %v", dsn, err)
 		}
 		db.Close()
 	}
@@ -63,5 +67,20 @@ func TestCryptoKey(t *testing.T) {
 	var v string
 	if err := db.QueryRow("SELECT v FROM t").Scan(&v); err != nil || v != "hello" {
 		t.Fatalf("read back %q, err %v", v, err)
+	}
+}
+
+func TestCryptoKeyWithNUL(t *testing.T) {
+	db, err := sql.Open("sqlite3", "file:"+filepath.Join(t.TempDir(), "nul.db")+"?_crypto_key=secret%00part")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	err = db.Ping()
+	if err == nil {
+		t.Fatal("opened a database with a key containing NUL")
+	}
+	if strings.Contains(err.Error(), "secret") {
+		t.Errorf("error shows the key: %v", err)
 	}
 }
