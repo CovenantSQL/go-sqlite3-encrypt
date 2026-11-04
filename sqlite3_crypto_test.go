@@ -1,5 +1,5 @@
-//go:build cgo
-// +build cgo
+//go:build cgo && !libsqlite3
+// +build cgo,!libsqlite3
 
 package sqlite3
 
