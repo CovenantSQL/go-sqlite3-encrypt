@@ -57,3 +57,15 @@ func TestNoCurrentTimeVFS(t *testing.T) {
 		t.Fatalf("the default VFS has no current time: %q, err %v", now.String, err)
 	}
 }
+
+func TestMoreThanOneVFS(t *testing.T) {
+	// SQLite would open this with the last one, the default VFS.
+	db, err := sql.Open("sqlite3", "file:"+filepath.Join(t.TempDir(), "two.db")+"?vfs=nocurrenttime&vfs=unix")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := db.Ping(); err == nil {
+		t.Fatal("opened a database with two vfs parameters")
+	}
+}

@@ -1648,6 +1648,11 @@ func (d *SQLiteDriver) Open(dsn string) (driver.Conn, error) {
 			stmtCacheSize = iv
 		}
 
+		// SQLite uses the last vfs parameter of a file: URI, while vfsName
+		// would be the first one.
+		if len(params["vfs"]) > 1 {
+			return nil, errors.New("sqlite3: more than one vfs parameter")
+		}
 		if val := params.Get("vfs"); val != "" {
 			vfsName = val
 		}
