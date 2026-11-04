@@ -9,3 +9,5 @@ package sqlite3
 #cgo CFLAGS: -DSQLITE_OMIT_LOCALTIME
 */
 import "C"
+
+const omitLocaltime = true

@@ -1,5 +1,4 @@
-//go:build cgo && sqlite_omit_localtime
-// +build cgo,sqlite_omit_localtime
+//go:build cgo && sqlite_omit_localtime && !libsqlite3
 
 package sqlite3
 
