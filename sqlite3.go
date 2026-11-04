@@ -381,6 +381,14 @@ func Version() (libVersion string, libVersionNumber int, sourceID string) {
 	return libVersion, libVersionNumber, sourceID
 }
 
+// compileOptionUsed reports whether SQLite was built with the option, named
+// without the SQLITE_ prefix.
+func compileOptionUsed(name string) bool {
+	cname := C.CString(name)
+	defer C.free(unsafe.Pointer(cname))
+	return C.sqlite3_compileoption_used(cname) != 0
+}
+
 const (
 	// used by authorizer and pre_update_hook
 	SQLITE_DELETE = C.SQLITE_DELETE
@@ -1182,6 +1190,11 @@ func (c *SQLiteConn) begin(ctx context.Context) (driver.Tx, error) {
 //	_crypto_key=XXX
 //	  Specify the SQLCipher encryption key, as text without quotes.
 //
+//	vfs=nocurrenttime
+//	  Use a copy of the default VFS without the current time: 'now', date and
+//	  time functions without a time value and the CURRENT_* keywords give NULL,
+//	  so results do not depend on when a query runs.
+//
 //	_auto_vacuum=X | _vacuum=X
 //	  0 | none - Auto Vacuum disabled
 //	  1 | full - Auto Vacuum FULL
@@ -1235,6 +1248,11 @@ func (c *SQLiteConn) begin(ctx context.Context) (driver.Tx, error) {
 func (d *SQLiteDriver) Open(dsn string) (driver.Conn, error) {
 	if C.sqlite3_threadsafe() == 0 {
 		return nil, errors.New("sqlite library was not compiled for thread-safe operation")
+	}
+	// The tag only changes the bundled SQLite: a system SQLite linked with the
+	// libsqlite3 tag may still have the localtime and utc modifiers.
+	if omitLocaltime && !compileOptionUsed("OMIT_LOCALTIME") {
+		return nil, errors.New("sqlite3: the sqlite_omit_localtime tag needs SQLite built with SQLITE_OMIT_LOCALTIME")
 	}
 
 	var pkey string
@@ -1322,10 +1340,7 @@ func (d *SQLiteDriver) Open(dsn string) (driver.Conn, error) {
 		if cryptoKey != "" {
 			// Without SQLCipher, as with the libsqlite3 tag and a plain system SQLite,
 			// PRAGMA key does nothing and the database would be written in plain text.
-			hasCodec := C.CString("HAS_CODEC")
-			used := C.sqlite3_compileoption_used(hasCodec)
-			C.free(unsafe.Pointer(hasCodec))
-			if used == 0 {
+			if !compileOptionUsed("HAS_CODEC") {
 				return nil, errors.New("sqlite3: _crypto_key needs SQLite built with SQLCipher")
 			}
 			// A NUL would cut the PRAGMA key statement short, and the syntax error
@@ -1634,8 +1649,18 @@ func (d *SQLiteDriver) Open(dsn string) (driver.Conn, error) {
 			stmtCacheSize = iv
 		}
 
+		// SQLite uses the last vfs parameter of a file: URI, while vfsName
+		// would be the first one.
+		if len(params["vfs"]) > 1 {
+			return nil, errors.New("sqlite3: more than one vfs parameter")
+		}
 		if val := params.Get("vfs"); val != "" {
 			vfsName = val
+		}
+		if vfsName == noCurrentTimeVFS {
+			if err := registerNoCurrentTimeVFS(); err != nil {
+				return nil, err
+			}
 		}
 
 		if !strings.HasPrefix(dsn, "file:") {

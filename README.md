@@ -16,12 +16,22 @@ Pass the key in the DSN, `sql.Open("sqlite3", "file:test.db?_crypto_key=secret")
 - With a shared cache (`cache=shared`), a connection with a wrong key or no key can read a database that another connection of the process has opened with the right key.
 - Backups between an encrypted and a plain database fail; use `sqlcipher_export` to copy between them.
 
+## Deterministic date and time
+
+For results that do not depend on when or where a query runs, as when several replicas execute the same statements:
+
+- `vfs=nocurrenttime` in the DSN uses a copy of the default VFS without the current time, so `'now'`, date and time functions called without a time value, and the `CURRENT_*` keywords give NULL.
+- The `sqlite_omit_localtime` build tag removes the `localtime` and `utc` modifiers, which depend on the time zone of the host; they give NULL as well. The tag only changes the bundled SQLite, so with the `libsqlite3` tag, opening a database fails unless the system SQLite is built with `SQLITE_OMIT_LOCALTIME`.
+
+Without a current time, a column declared `NOT NULL DEFAULT CURRENT_TIMESTAMP` cannot get its default, and inserts that rely on it fail. SQLite also skips the profile callbacks of statements, so `sqlite_trace` profile events and SQLCipher's `PRAGMA cipher_profile` report nothing.
+
 ## Changes from go-sqlite3
 
 - `sqlite3-binding.c`, `sqlite3-binding.h` and `sqlite3ext.h` are generated from the SQLCipher sources. The `upgrade` tool, which replaces them with the official SQLite amalgamation, is removed.
 - The LibTomCrypt sources SQLCipher needs: the `tomcrypt*.h` headers and the `.c` files whose names do not start with `sqlite3`.
 - `sqlite3.go` defines the SQLCipher compile options, turns off the default logging of SQLCipher to stderr, and adds the `_crypto_key` DSN parameter.
 - `Exec` without arguments reports missing arguments again, which go-sqlite3 v1.14.52 does not.
+- `sqlite3_nocurrenttime.go` adds the `nocurrenttime` VFS, and `sqlite3_opt_omit_localtime.go` the `sqlite_omit_localtime` tag.
 - `sqlite3_opt_icu.go` adds the libraries that a static link of ICU needs.
 - The CIFuzz workflow, which builds the OSS-Fuzz project of go-sqlite3, is removed.
 
