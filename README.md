@@ -1,18 +1,30 @@
 go-sqlite3-encrypt
 ==================
 
-This is a fork of [mattn/go-sqlite3](https://github.com/mattn/go-sqlite3) v1.14.52 that bundles [SQLCipher](https://github.com/sqlcipher/sqlcipher) 4.20.0 (SQLite 3.54.1) instead of the official SQLite amalgamation. SQLCipher uses [LibTomCrypt](https://github.com/libtom/libtomcrypt) 1.18.2, whose sources are included, so no system crypto library is needed. The README of go-sqlite3 follows below.
+This is a fork of [mattn/go-sqlite3](https://github.com/mattn/go-sqlite3) v1.14.52 that bundles [SQLCipher](https://github.com/sqlcipher/sqlcipher) 4.20.0 (SQLite 3.54.1) instead of the official SQLite amalgamation. SQLCipher uses [LibTomCrypt](https://github.com/libtom/libtomcrypt) 1.18.2, whose sources are included, so no system crypto library is needed. Install it with
+
+    go get github.com/CovenantSQL/go-sqlite3-encrypt
+
+Versions v1.9.0 and earlier are retracted: they are go-sqlite3 releases without SQLCipher. The README of go-sqlite3 follows below.
 
 ## Encryption
 
-Pass the key in the DSN, `sql.Open("sqlite3", "file:test.db?_crypto_key=secret")`, or run `PRAGMA key = 'secret'` before any other statement. New databases use the SQLCipher 4 default settings. The key has no effect with the `libsqlite3` build tag, which links the system SQLite.
+Pass the key in the DSN, `sql.Open("sqlite3", "file:test.db?_crypto_key=secret")`. It is applied with `PRAGMA key` on every new connection, before any other statement.
+
+- The key is a URL query value, so encode it with `url.QueryEscape`: a `+` would otherwise become a space. Keys containing NUL are rejected.
+- Opening a database with `_crypto_key` fails if the SQLite library is not SQLCipher, as with the `libsqlite3` build tag and a plain system SQLite, instead of writing the database in plain text.
+- New databases use the SQLCipher 4 default settings. Databases encrypted by earlier versions of this fork use SQLCipher 3 and do not open; migrate them first, for example with `PRAGMA cipher_migrate` in the SQLCipher 4 command line tool.
+- With a shared cache (`cache=shared`), a connection with a wrong key or no key can read a database that another connection of the process has opened with the right key.
+- Backups between an encrypted and a plain database fail; use `sqlcipher_export` to copy between them.
 
 ## Changes from go-sqlite3
 
-- `sqlite3-binding.c`, `sqlite3-binding.h` and `sqlite3ext.h` are generated from the SQLCipher sources.
+- `sqlite3-binding.c`, `sqlite3-binding.h` and `sqlite3ext.h` are generated from the SQLCipher sources. The `upgrade` tool, which replaces them with the official SQLite amalgamation, is removed.
 - The LibTomCrypt sources SQLCipher needs: the `tomcrypt*.h` headers and the `.c` files whose names do not start with `sqlite3`.
-- `sqlite3.go` defines the SQLCipher compile options and adds the `_crypto_key` DSN parameter.
-- `sqlite3_opt_icu.go` links ICU statically.
+- `sqlite3.go` defines the SQLCipher compile options, turns off the default logging of SQLCipher to stderr, and adds the `_crypto_key` DSN parameter.
+- `Exec` without arguments reports missing arguments again, which go-sqlite3 v1.14.52 does not.
+- `sqlite3_opt_icu.go` adds the libraries that a static link of ICU needs.
+- The CIFuzz workflow, which builds the OSS-Fuzz project of go-sqlite3, is removed.
 
 ## Updating SQLCipher
 
@@ -21,7 +33,7 @@ Pass the key in the DSN, `sql.Open("sqlite3", "file:test.db?_crypto_key=secret")
        ./configure --with-tempstore=yes CFLAGS="-DSQLITE_HAS_CODEC -DSQLITE_EXTRA_INIT=sqlcipher_extra_init -DSQLITE_EXTRA_SHUTDOWN=sqlcipher_extra_shutdown"
        make sqlite3.c
 
-2. Turn `sqlite3.c`, `sqlite3.h` and `sqlite3ext.h` into `sqlite3-binding.c`, `sqlite3-binding.h` and `sqlite3ext.h` the way `upgrade/upgrade.go` does with the official amalgamation: wrap each file in `#ifndef USE_LIBSQLITE3` ... `#else` ... `#endif`, and replace `#include "sqlite3.h"` with `#include "sqlite3-binding.h"`.
+2. Turn `sqlite3.c`, `sqlite3.h` and `sqlite3ext.h` into `sqlite3-binding.c`, `sqlite3-binding.h` and `sqlite3ext.h`: wrap each file in `#ifndef USE_LIBSQLITE3` ... `#else` ... `#endif`, and replace the line `#include "sqlite3.h"` with `#include "sqlite3-binding.h"`, as go-sqlite3 does with the official amalgamation.
 3. Check whether `src/crypto_libtomcrypt.c` of the new release uses LibTomCrypt functions that are not included yet, and run the tests.
 
 ---
