@@ -11,6 +11,11 @@ package sqlite3
 
 /*
 #cgo CFLAGS: -std=gnu99
+#cgo CFLAGS: -DSQLITE_HAS_CODEC
+#cgo CFLAGS: -DSQLITE_TEMP_STORE=2
+#cgo CFLAGS: -DSQLITE_EXTRA_INIT=sqlcipher_extra_init
+#cgo CFLAGS: -DSQLITE_EXTRA_SHUTDOWN=sqlcipher_extra_shutdown
+#cgo CFLAGS: -DSQLCIPHER_CRYPTO_LIBTOMCRYPT
 #cgo CFLAGS: -DSQLITE_ENABLE_RTREE
 #cgo CFLAGS: -DSQLITE_THREADSAFE=1
 #cgo CFLAGS: -DHAVE_USLEEP=1
@@ -1159,6 +1164,9 @@ func (c *SQLiteConn) begin(ctx context.Context) (driver.Tx, error) {
 //	  Specify locking behavior for transactions.  XXX can be "immediate",
 //	  "deferred", "exclusive".
 //
+//	_crypto_key=XXX
+//	  Specify the SQLCipher encryption key, as text without quotes.
+//
 //	_auto_vacuum=X | _vacuum=X
 //	  0 | none - Auto Vacuum disabled
 //	  1 | full - Auto Vacuum FULL
@@ -1225,6 +1233,7 @@ func (d *SQLiteDriver) Open(dsn string) (driver.Conn, error) {
 	authSalt := ""
 	mutex := C.int(C.SQLITE_OPEN_FULLMUTEX)
 	txlock := "BEGIN"
+	cryptoKey := ""
 
 	// PRAGMA's
 	autoVacuum := -1
@@ -1292,6 +1301,9 @@ func (d *SQLiteDriver) Open(dsn string) (driver.Conn, error) {
 				return nil, fmt.Errorf("Invalid _mutex: %v", val)
 			}
 		}
+
+		// _crypto_key
+		cryptoKey = params.Get("_crypto_key")
 
 		// _txlock
 		if val := params.Get("_txlock"); val != "" {
@@ -1659,6 +1671,13 @@ func (d *SQLiteDriver) Open(dsn string) (driver.Conn, error) {
 			return lastError(db)
 		}
 		return nil
+	}
+
+	// crypto key must be specified BEFORE any other action
+	if cryptoKey != "" {
+		if err := exec(fmt.Sprintf("PRAGMA key = '%s'", strings.Replace(cryptoKey, "'", "''", -1))); err != nil {
+			return fail(err)
+		}
 	}
 
 	// Busy timeout
