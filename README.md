@@ -13,7 +13,6 @@ Pass the key in the DSN, `sql.Open("sqlite3", "file:test.db?_crypto_key=secret")
 
 - The key is a URL query value, so encode it with `url.QueryEscape`: a `+` would otherwise become a space. Keys containing NUL are rejected.
 - Opening a database with `_crypto_key` fails if the SQLite library is not SQLCipher, as with the `libsqlite3` build tag and a plain system SQLite, instead of writing the database in plain text.
-- New databases use the SQLCipher 4 default settings. Databases encrypted by earlier versions of this fork use SQLCipher 3 and do not open; migrate them first, for example with `PRAGMA cipher_migrate` in the SQLCipher 4 command line tool.
 - With a shared cache (`cache=shared`), a connection with a wrong key or no key can read a database that another connection of the process has opened with the right key.
 - Backups between an encrypted and a plain database fail; use `sqlcipher_export` to copy between them.
 
