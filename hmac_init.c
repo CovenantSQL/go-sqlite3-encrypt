@@ -6,7 +6,7 @@
  * The library is free for all purposes without any express
  * guarantee it works.
  */
-#include "tomcrypt_private.h"
+#include "tomcrypt.h"
 
 /**
   @file hmac_init.c
@@ -53,10 +53,11 @@ int hmac_init(hmac_state *hmac, int hash, const unsigned char *key, unsigned lon
        return CRYPT_MEM;
     }
 
-    /* check hash block fits */
-    if (sizeof(hmac->key) < LTC_HMAC_BLOCKSIZE) {
-        err = CRYPT_BUFFER_OVERFLOW;
-        goto LBL_ERR;
+    /* allocate memory for key */
+    hmac->key = XMALLOC(LTC_HMAC_BLOCKSIZE);
+    if (hmac->key == NULL) {
+       XFREE(buf);
+       return CRYPT_MEM;
     }
 
     /* (1) make sure we have a large enough key */
@@ -87,8 +88,11 @@ int hmac_init(hmac_state *hmac, int hash, const unsigned char *key, unsigned lon
     if ((err = hash_descriptor[hash].process(&hmac->md, buf, LTC_HMAC_BLOCKSIZE)) != CRYPT_OK) {
        goto LBL_ERR;
     }
-
+    goto done;
 LBL_ERR:
+    /* free the key since we failed */
+    XFREE(hmac->key);
+done:
 #ifdef LTC_CLEAN_STACK
    zeromem(buf, LTC_HMAC_BLOCKSIZE);
 #endif
@@ -99,6 +103,6 @@ LBL_ERR:
 
 #endif
 
-/* ref:         $Format:%D$ */
-/* git commit:  $Format:%H$ */
-/* commit time: $Format:%ai$ */
+/* ref:         tag: v1.18.2, master */
+/* git commit:  7e7eb695d581782f04b24dc444cbfde86af59853 */
+/* commit time: 2018-07-01 22:49:01 +0200 */

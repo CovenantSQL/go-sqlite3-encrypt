@@ -40,9 +40,10 @@ struct fortuna_prng {
                   IV[16];     /* IV for CTR mode */
 
     unsigned long pool_idx,   /* current pool we will add to */
-                  pool0_len;  /* length of 0'th pool */
-    ulong64       wd;
-    ulong64       reset_cnt;  /* number of times we have reseeded */
+                  pool0_len,  /* length of 0'th pool */
+                  wd;
+
+    ulong64       reset_cnt;  /* number of times we have reset */
 };
 #endif
 
@@ -72,7 +73,7 @@ typedef struct {
 #ifdef LTC_SOBER128
       struct sober128_prng  sober128;
 #endif
-   } u;
+   };
    short ready;            /* ready flag 0-1 */
    LTC_MUTEX_TYPE(lock)    /* lock */
 } prng_state;
@@ -147,14 +148,12 @@ extern const struct ltc_prng_descriptor yarrow_desc;
 #ifdef LTC_FORTUNA
 int fortuna_start(prng_state *prng);
 int fortuna_add_entropy(const unsigned char *in, unsigned long inlen, prng_state *prng);
-int fortuna_add_random_event(unsigned long source, unsigned long pool, const unsigned char *in, unsigned long inlen, prng_state *prng);
 int fortuna_ready(prng_state *prng);
 unsigned long fortuna_read(unsigned char *out, unsigned long outlen, prng_state *prng);
 int fortuna_done(prng_state *prng);
-int fortuna_export(unsigned char *out, unsigned long *outlen, prng_state *prng);
-int fortuna_import(const unsigned char *in, unsigned long inlen, prng_state *prng);
-int fortuna_update_seed(const unsigned char *in, unsigned long inlen, prng_state *prng);
-int fortuna_test(void);
+int  fortuna_export(unsigned char *out, unsigned long *outlen, prng_state *prng);
+int  fortuna_import(const unsigned char *in, unsigned long inlen, prng_state *prng);
+int  fortuna_test(void);
 extern const struct ltc_prng_descriptor fortuna_desc;
 #endif
 
@@ -228,6 +227,6 @@ extern unsigned long (*ltc_rng)(unsigned char *out, unsigned long outlen,
 #endif
 
 
-/* ref:         $Format:%D$ */
-/* git commit:  $Format:%H$ */
-/* commit time: $Format:%ai$ */
+/* ref:         tag: v1.18.2, master */
+/* git commit:  7e7eb695d581782f04b24dc444cbfde86af59853 */
+/* commit time: 2018-07-01 22:49:01 +0200 */

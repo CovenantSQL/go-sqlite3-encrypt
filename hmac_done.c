@@ -6,7 +6,7 @@
  * The library is free for all purposes without any express
  * guarantee it works.
  */
-#include "tomcrypt_private.h"
+#include "tomcrypt.h"
 
 /**
   @file hmac_done.c
@@ -87,6 +87,7 @@ int hmac_done(hmac_state *hmac, unsigned char *out, unsigned long *outlen)
 
     err = CRYPT_OK;
 LBL_ERR:
+    XFREE(hmac->key);
 #ifdef LTC_CLEAN_STACK
     zeromem(isha, hashsize);
     zeromem(buf,  hashsize);
@@ -101,6 +102,6 @@ LBL_ERR:
 
 #endif
 
-/* ref:         $Format:%D$ */
-/* git commit:  $Format:%H$ */
-/* commit time: $Format:%ai$ */
+/* ref:         tag: v1.18.2, master */
+/* git commit:  7e7eb695d581782f04b24dc444cbfde86af59853 */
+/* commit time: 2018-07-01 22:49:01 +0200 */

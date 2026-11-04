@@ -1,9 +1,9 @@
-// Copyright (C) 2014 Yasuhiro Matsumoto <mattn.jp@gmail.com>.
+// Copyright (C) 2019 Yasuhiro Matsumoto <mattn.jp@gmail.com>.
 //
 // Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file.
 
-// +build sqlite_vtable vtable
+//go:build sqlite_vtable || vtable
 
 package sqlite3
 
@@ -97,7 +97,7 @@ func (vc *testVTabCursor) Close() error {
 	return nil
 }
 
-func (vc *testVTabCursor) Filter(idxNum int, idxStr string, vals []interface{}) error {
+func (vc *testVTabCursor) Filter(idxNum int, idxStr string, vals []any) error {
 	vc.index = 0
 	return nil
 }
@@ -235,10 +235,10 @@ func TestVUpdate(t *testing.T) {
 	if len(vt.data) != 2 {
 		t.Fatalf("expected table vt to have exactly 2 rows, got: %d", len(vt.data))
 	}
-	if !reflect.DeepEqual(vt.data[0], []interface{}{int64(115), "b", "c"}) {
+	if !reflect.DeepEqual(vt.data[0], []any{int64(115), "b", "c"}) {
 		t.Fatalf("expected table vt entry 0 to be [115 b c], instead: %v", vt.data[0])
 	}
-	if !reflect.DeepEqual(vt.data[1], []interface{}{int64(116), "d", "e"}) {
+	if !reflect.DeepEqual(vt.data[1], []any{int64(116), "d", "e"}) {
 		t.Fatalf("expected table vt entry 1 to be [116 d e], instead: %v", vt.data[1])
 	}
 
@@ -272,11 +272,24 @@ func TestVUpdate(t *testing.T) {
 	if len(vt.data) != 2 {
 		t.Fatalf("expected table vt to have exactly 2 rows, got: %d", len(vt.data))
 	}
-	if !reflect.DeepEqual(vt.data[0], []interface{}{int64(115), "b", "c"}) {
+	if !reflect.DeepEqual(vt.data[0], []any{int64(115), "b", "c"}) {
 		t.Fatalf("expected table vt entry 0 to be [115 b c], instead: %v", vt.data[0])
 	}
-	if !reflect.DeepEqual(vt.data[1], []interface{}{int64(117), "f", "e"}) {
+	if !reflect.DeepEqual(vt.data[1], []any{int64(117), "f", "e"}) {
 		t.Fatalf("expected table vt entry 1 to be [117 f e], instead: %v", vt.data[1])
+	}
+
+	// a rowid-changing update cannot be expressed via VTabUpdater and
+	// must be rejected instead of updating the wrong row
+	_, err = db.Exec(`update vt set rowid = rowid + 10 where f1 = 117`)
+	if err == nil {
+		t.Fatalf("expected error on rowid-changing update, got nil")
+	}
+	if !strings.Contains(err.Error(), "does not support changing the rowid") {
+		t.Fatalf("unexpected error on rowid-changing update: %v", err)
+	}
+	if !reflect.DeepEqual(vt.data[1], []any{int64(117), "f", "e"}) {
+		t.Fatalf("expected table vt entry 1 to be unchanged, instead: %v", vt.data[1])
 	}
 
 	// delete from vt
@@ -296,7 +309,7 @@ func TestVUpdate(t *testing.T) {
 	if len(vt.data) != 1 {
 		t.Fatalf("expected table vt to have exactly 1 row, got: %d", len(vt.data))
 	}
-	if !reflect.DeepEqual(vt.data[0], []interface{}{int64(115), "b", "c"}) {
+	if !reflect.DeepEqual(vt.data[0], []any{int64(115), "b", "c"}) {
 		t.Fatalf("expected table vt entry 0 to be [115 b c], instead: %v", vt.data[0])
 	}
 
@@ -352,7 +365,7 @@ func (m *vtabUpdateModule) Create(c *SQLiteConn, args []string) (VTab, error) {
 	}
 
 	// create table
-	vtab := &vtabUpdateTable{m.t, dbname, tname, cols, typs, make([][]interface{}, 0)}
+	vtab := &vtabUpdateTable{m.t, dbname, tname, cols, typs, make([][]any, 0)}
 	m.tables[tname] = vtab
 	return vtab, nil
 }
@@ -369,7 +382,7 @@ type vtabUpdateTable struct {
 	name string
 	cols []string
 	typs []string
-	data [][]interface{}
+	data [][]any
 }
 
 func (t *vtabUpdateTable) Open() (VTabCursor, error) {
@@ -388,7 +401,7 @@ func (t *vtabUpdateTable) Destroy() error {
 	return nil
 }
 
-func (t *vtabUpdateTable) Insert(id interface{}, vals []interface{}) (int64, error) {
+func (t *vtabUpdateTable) Insert(id any, vals []any) (int64, error) {
 	var i int64
 	if id == nil {
 		i, t.data = int64(len(t.data)), append(t.data, vals)
@@ -406,7 +419,7 @@ func (t *vtabUpdateTable) Insert(id interface{}, vals []interface{}) (int64, err
 	return i, nil
 }
 
-func (t *vtabUpdateTable) Update(id interface{}, vals []interface{}) error {
+func (t *vtabUpdateTable) Update(id any, vals []any) error {
 	i, ok := id.(int64)
 	if !ok {
 		return fmt.Errorf("id is invalid type: %T", id)
@@ -421,7 +434,7 @@ func (t *vtabUpdateTable) Update(id interface{}, vals []interface{}) error {
 	return nil
 }
 
-func (t *vtabUpdateTable) Delete(id interface{}) error {
+func (t *vtabUpdateTable) Delete(id any) error {
 	i, ok := id.(int64)
 	if !ok {
 		return fmt.Errorf("id is invalid type: %T", id)
@@ -464,7 +477,7 @@ func (c *vtabUpdateCursor) Column(ctxt *SQLiteContext, col int) error {
 	return nil
 }
 
-func (c *vtabUpdateCursor) Filter(ixNum int, ixName string, vals []interface{}) error {
+func (c *vtabUpdateCursor) Filter(ixNum int, ixName string, vals []any) error {
 	return nil
 }
 
@@ -483,4 +496,126 @@ func (c *vtabUpdateCursor) Rowid() (int64, error) {
 
 func (c *vtabUpdateCursor) Close() error {
 	return nil
+}
+
+type testModuleEponymousOnly struct {
+	t        *testing.T
+	intarray []int
+}
+
+type testVTabEponymousOnly struct {
+	intarray []int
+}
+
+type testVTabCursorEponymousOnly struct {
+	vTab  *testVTabEponymousOnly
+	index int
+}
+
+func (m testModuleEponymousOnly) EponymousOnlyModule() {}
+
+func (m testModuleEponymousOnly) Create(c *SQLiteConn, args []string) (VTab, error) {
+	err := c.DeclareVTab("CREATE TABLE x(test INT)")
+	if err != nil {
+		return nil, err
+	}
+	return &testVTabEponymousOnly{m.intarray}, nil
+}
+
+func (m testModuleEponymousOnly) Connect(c *SQLiteConn, args []string) (VTab, error) {
+	return m.Create(c, args)
+}
+
+func (m testModuleEponymousOnly) DestroyModule() {}
+
+func (v *testVTabEponymousOnly) BestIndex(cst []InfoConstraint, ob []InfoOrderBy) (*IndexResult, error) {
+	used := make([]bool, 0, len(cst))
+	for range cst {
+		used = append(used, false)
+	}
+	return &IndexResult{
+		Used:           used,
+		IdxNum:         0,
+		IdxStr:         "test-index",
+		AlreadyOrdered: true,
+		EstimatedCost:  100,
+		EstimatedRows:  200,
+	}, nil
+}
+
+func (v *testVTabEponymousOnly) Disconnect() error {
+	return nil
+}
+
+func (v *testVTabEponymousOnly) Destroy() error {
+	return nil
+}
+
+func (v *testVTabEponymousOnly) Open() (VTabCursor, error) {
+	return &testVTabCursorEponymousOnly{v, 0}, nil
+}
+
+func (vc *testVTabCursorEponymousOnly) Close() error {
+	return nil
+}
+
+func (vc *testVTabCursorEponymousOnly) Filter(idxNum int, idxStr string, vals []any) error {
+	vc.index = 0
+	return nil
+}
+
+func (vc *testVTabCursorEponymousOnly) Next() error {
+	vc.index++
+	return nil
+}
+
+func (vc *testVTabCursorEponymousOnly) EOF() bool {
+	return vc.index >= len(vc.vTab.intarray)
+}
+
+func (vc *testVTabCursorEponymousOnly) Column(c *SQLiteContext, col int) error {
+	if col != 0 {
+		return fmt.Errorf("column index out of bounds: %d", col)
+	}
+	c.ResultInt(vc.vTab.intarray[vc.index])
+	return nil
+}
+
+func (vc *testVTabCursorEponymousOnly) Rowid() (int64, error) {
+	return int64(vc.index), nil
+}
+
+func TestCreateModuleEponymousOnly(t *testing.T) {
+	tempFilename := TempFilename(t)
+	defer os.Remove(tempFilename)
+	intarray := []int{1, 2, 3}
+	sql.Register("sqlite3_TestCreateModuleEponymousOnly", &SQLiteDriver{
+		ConnectHook: func(conn *SQLiteConn) error {
+			return conn.CreateModule("test", testModuleEponymousOnly{t, intarray})
+		},
+	})
+	db, err := sql.Open("sqlite3_TestCreateModuleEponymousOnly", tempFilename)
+	if err != nil {
+		t.Fatalf("could not open db: %v", err)
+	}
+
+	var i, value int
+	rows, err := db.Query("SELECT rowid, * FROM test")
+	if err != nil {
+		t.Fatalf("couldn't select from virtual table: %v", err)
+	}
+	for rows.Next() {
+		err := rows.Scan(&i, &value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if intarray[i] != value {
+			t.Fatalf("want %v but %v", intarray[i], value)
+		}
+	}
+
+	_, err = db.Exec("DROP TABLE test")
+	if err != nil {
+		t.Logf("couldn't drop virtual table: %v", err)
+	}
 }

@@ -1,4 +1,4 @@
-// Copyright (C) 2014 Yasuhiro Matsumoto <mattn.jp@gmail.com>.
+// Copyright (C) 2019 Yasuhiro Matsumoto <mattn.jp@gmail.com>.
 //
 // Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file.
@@ -8,7 +8,7 @@ package sqlite3
 /*
 
 #ifndef USE_LIBSQLITE3
-#include <sqlite3-binding.h>
+#include "sqlite3-binding.h"
 #else
 #include <sqlite3.h>
 #endif
@@ -28,7 +28,6 @@ import "C"
 
 import (
 	"math"
-	"reflect"
 	"unsafe"
 )
 
@@ -91,9 +90,15 @@ func (c *SQLiteContext) ResultNull() {
 // ResultText sets the result of an SQL function.
 // See: sqlite3_result_text, http://sqlite.org/c3ref/result_blob.html
 func (c *SQLiteContext) ResultText(s string) {
-	h := (*reflect.StringHeader)(unsafe.Pointer(&s))
-	cs, l := (*C.char)(unsafe.Pointer(h.Data)), C.int(h.Len)
-	C.my_result_text((*C.sqlite3_context)(c), cs, l)
+	if i64 && len(s) > math.MaxInt32 {
+		C.sqlite3_result_error_toobig((*C.sqlite3_context)(c))
+		return
+	}
+	if len(s) == 0 {
+		C.my_result_text((*C.sqlite3_context)(c), (*C.char)(unsafe.Pointer(&placeHolder[0])), 0)
+		return
+	}
+	C.my_result_text((*C.sqlite3_context)(c), (*C.char)(unsafe.Pointer(unsafe.StringData(s))), C.int(len(s)))
 }
 
 // ResultZeroblob sets the result of an SQL function.

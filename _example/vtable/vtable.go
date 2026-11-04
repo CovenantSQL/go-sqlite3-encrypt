@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/mattn/go-sqlite3"
 )
@@ -20,13 +21,20 @@ type githubModule struct {
 }
 
 func (m *githubModule) Create(c *sqlite3.SQLiteConn, args []string) (sqlite3.VTab, error) {
+	// args holds the raw xCreate arguments: args[0] is the module name,
+	// args[1] the database name, args[2] the virtual table name, and any
+	// user arguments follow.
+	if len(args) < 3 {
+		return nil, fmt.Errorf("githubModule: unexpected arguments: %v", args)
+	}
+	tableName := `"` + strings.ReplaceAll(args[2], `"`, `""`) + `"`
 	err := c.DeclareVTab(fmt.Sprintf(`
 		CREATE TABLE %s (
 			id INT,
 			full_name TEXT,
 			description TEXT,
 			html_url TEXT
-		)`, args[0]))
+		)`, tableName))
 	if err != nil {
 		return nil, err
 	}
@@ -49,6 +57,9 @@ func (v *ghRepoTable) Open() (sqlite3.VTabCursor, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("fetching repositories: %s", resp.Status)
+	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -62,8 +73,13 @@ func (v *ghRepoTable) Open() (sqlite3.VTabCursor, error) {
 	return &ghRepoCursor{0, repos}, nil
 }
 
-func (v *ghRepoTable) BestIndex(cst []sqlite3.InfoConstraint, ob []sqlite3.InfoOrderBy) (*sqlite3.IndexResult, error) {
-	return &sqlite3.IndexResult{}, nil
+func (v *ghRepoTable) BestIndex(csts []sqlite3.InfoConstraint, ob []sqlite3.InfoOrderBy) (*sqlite3.IndexResult, error) {
+	used := make([]bool, len(csts))
+	return &sqlite3.IndexResult{
+		IdxNum: 0,
+		IdxStr: "default",
+		Used:   used,
+	}, nil
 }
 
 func (v *ghRepoTable) Disconnect() error { return nil }
@@ -88,7 +104,7 @@ func (vc *ghRepoCursor) Column(c *sqlite3.SQLiteContext, col int) error {
 	return nil
 }
 
-func (vc *ghRepoCursor) Filter(idxNum int, idxStr string, vals []interface{}) error {
+func (vc *ghRepoCursor) Filter(idxNum int, idxStr string, vals []any) error {
 	vc.index = 0
 	return nil
 }

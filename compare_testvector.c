@@ -7,7 +7,7 @@
  * guarantee it works.
  */
 
-#include "tomcrypt_private.h"
+#include "tomcrypt.h"
 
 /**
   @file compare_testvector.c
@@ -63,20 +63,16 @@ static void _print_hex(const char* what, const void* v, const unsigned long l)
 int compare_testvector(const void* is, const unsigned long is_len, const void* should, const unsigned long should_len, const char* what, int which)
 {
    int res = 0;
-   if(is_len != should_len) {
+   if(is_len != should_len)
       res = is_len > should_len ? -1 : 1;
-   } else {
+   else
       res = XMEMCMP(is, should, is_len);
-   }
+
 #if defined(LTC_TEST) && defined(LTC_TEST_DBG)
    if (res != 0) {
       fprintf(stderr, "Testvector #%i of %s failed:\n", which, what);
       _print_hex("SHOULD", should, should_len);
       _print_hex("IS    ", is, is_len);
-#if LTC_TEST_DBG > 1
-   } else {
-      fprintf(stderr, "Testvector #%i of %s passed!\n", which, what);
-#endif
    }
 #else
    LTC_UNUSED_PARAM(which);
@@ -86,6 +82,6 @@ int compare_testvector(const void* is, const unsigned long is_len, const void* s
    return res;
 }
 
-/* ref:         $Format:%D$ */
-/* git commit:  $Format:%H$ */
-/* commit time: $Format:%ai$ */
+/* ref:         tag: v1.18.2, master */
+/* git commit:  7e7eb695d581782f04b24dc444cbfde86af59853 */
+/* commit time: 2018-07-01 22:49:01 +0200 */

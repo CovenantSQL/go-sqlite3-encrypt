@@ -6,7 +6,7 @@
  * The library is free for all purposes without any express
  * guarantee it works.
  */
-#include "tomcrypt_private.h"
+#include "tomcrypt.h"
 
 /**
    @file cbc_encrypt.c
@@ -52,44 +52,45 @@ int cbc_encrypt(const unsigned char *pt, unsigned char *ct, unsigned long len, s
 
    if (cipher_descriptor[cbc->cipher].accel_cbc_encrypt != NULL) {
       return cipher_descriptor[cbc->cipher].accel_cbc_encrypt(pt, ct, len / cbc->blocklen, cbc->IV, &cbc->key);
-   }
-   while (len) {
-      /* xor IV against plaintext */
-#if defined(LTC_FAST)
-      for (x = 0; x < cbc->blocklen; x += sizeof(LTC_FAST_TYPE)) {
-         *(LTC_FAST_TYPE_PTR_CAST((unsigned char *)cbc->IV + x)) ^= *(LTC_FAST_TYPE_PTR_CAST((unsigned char *)pt + x));
-      }
-#else
-      for (x = 0; x < cbc->blocklen; x++) {
-         cbc->IV[x] ^= pt[x];
-      }
-#endif
+   } else {
+      while (len) {
+         /* xor IV against plaintext */
+         #if defined(LTC_FAST)
+         for (x = 0; x < cbc->blocklen; x += sizeof(LTC_FAST_TYPE)) {
+            *(LTC_FAST_TYPE_PTR_CAST((unsigned char *)cbc->IV + x)) ^= *(LTC_FAST_TYPE_PTR_CAST((unsigned char *)pt + x));
+         }
+    #else
+         for (x = 0; x < cbc->blocklen; x++) {
+            cbc->IV[x] ^= pt[x];
+         }
+    #endif
 
-      /* encrypt */
-      if ((err = cipher_descriptor[cbc->cipher].ecb_encrypt(cbc->IV, ct, &cbc->key)) != CRYPT_OK) {
-         return err;
-      }
+         /* encrypt */
+         if ((err = cipher_descriptor[cbc->cipher].ecb_encrypt(cbc->IV, ct, &cbc->key)) != CRYPT_OK) {
+            return err;
+         }
 
-      /* store IV [ciphertext] for a future block */
-#if defined(LTC_FAST)
-      for (x = 0; x < cbc->blocklen; x += sizeof(LTC_FAST_TYPE)) {
-         *(LTC_FAST_TYPE_PTR_CAST((unsigned char *)cbc->IV + x)) = *(LTC_FAST_TYPE_PTR_CAST((unsigned char *)ct + x));
-      }
-#else
-      for (x = 0; x < cbc->blocklen; x++) {
-         cbc->IV[x] = ct[x];
-      }
-#endif
+         /* store IV [ciphertext] for a future block */
+         #if defined(LTC_FAST)
+         for (x = 0; x < cbc->blocklen; x += sizeof(LTC_FAST_TYPE)) {
+            *(LTC_FAST_TYPE_PTR_CAST((unsigned char *)cbc->IV + x)) = *(LTC_FAST_TYPE_PTR_CAST((unsigned char *)ct + x));
+         }
+    #else
+         for (x = 0; x < cbc->blocklen; x++) {
+            cbc->IV[x] = ct[x];
+         }
+    #endif
 
-      ct  += cbc->blocklen;
-      pt  += cbc->blocklen;
-      len -= cbc->blocklen;
+         ct  += cbc->blocklen;
+         pt  += cbc->blocklen;
+         len -= cbc->blocklen;
+      }
    }
    return CRYPT_OK;
 }
 
 #endif
 
-/* ref:         $Format:%D$ */
-/* git commit:  $Format:%H$ */
-/* commit time: $Format:%ai$ */
+/* ref:         tag: v1.18.2, master */
+/* git commit:  7e7eb695d581782f04b24dc444cbfde86af59853 */
+/* commit time: 2018-07-01 22:49:01 +0200 */

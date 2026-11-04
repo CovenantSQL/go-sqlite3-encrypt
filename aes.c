@@ -28,7 +28,7 @@
   Implementation of AES
 */
 
-#include "tomcrypt_private.h"
+#include "tomcrypt.h"
 
 #ifdef LTC_RIJNDAEL
 
@@ -281,13 +281,12 @@ int SETUP(const unsigned char *key, int keylen, int num_rounds, symmetric_key *s
   @return CRYPT_OK if successful
 */
 #ifdef LTC_CLEAN_STACK
-static int _rijndael_ecb_encrypt(const unsigned char *pt, unsigned char *ct, const symmetric_key *skey)
+static int _rijndael_ecb_encrypt(const unsigned char *pt, unsigned char *ct, symmetric_key *skey)
 #else
-int ECB_ENC(const unsigned char *pt, unsigned char *ct, const symmetric_key *skey)
+int ECB_ENC(const unsigned char *pt, unsigned char *ct, symmetric_key *skey)
 #endif
 {
-    ulong32 s0, s1, s2, s3, t0, t1, t2, t3;
-    const ulong32 *rk;
+    ulong32 s0, s1, s2, s3, t0, t1, t2, t3, *rk;
     int Nr, r;
 
     LTC_ARGCHK(pt != NULL);
@@ -443,7 +442,7 @@ int ECB_ENC(const unsigned char *pt, unsigned char *ct, const symmetric_key *ske
 }
 
 #ifdef LTC_CLEAN_STACK
-int ECB_ENC(const unsigned char *pt, unsigned char *ct, const symmetric_key *skey)
+int ECB_ENC(const unsigned char *pt, unsigned char *ct, symmetric_key *skey)
 {
    int err = _rijndael_ecb_encrypt(pt, ct, skey);
    burn_stack(sizeof(unsigned long)*8 + sizeof(unsigned long*) + sizeof(int)*2);
@@ -461,13 +460,12 @@ int ECB_ENC(const unsigned char *pt, unsigned char *ct, const symmetric_key *ske
   @return CRYPT_OK if successful
 */
 #ifdef LTC_CLEAN_STACK
-static int _rijndael_ecb_decrypt(const unsigned char *ct, unsigned char *pt, const symmetric_key *skey)
+static int _rijndael_ecb_decrypt(const unsigned char *ct, unsigned char *pt, symmetric_key *skey)
 #else
-int ECB_DEC(const unsigned char *ct, unsigned char *pt, const symmetric_key *skey)
+int ECB_DEC(const unsigned char *ct, unsigned char *pt, symmetric_key *skey)
 #endif
 {
-    ulong32 s0, s1, s2, s3, t0, t1, t2, t3;
-    const ulong32 *rk;
+    ulong32 s0, s1, s2, s3, t0, t1, t2, t3, *rk;
     int Nr, r;
 
     LTC_ARGCHK(pt != NULL);
@@ -624,7 +622,7 @@ int ECB_DEC(const unsigned char *ct, unsigned char *pt, const symmetric_key *ske
 
 
 #ifdef LTC_CLEAN_STACK
-int ECB_DEC(const unsigned char *ct, unsigned char *pt, const symmetric_key *skey)
+int ECB_DEC(const unsigned char *ct, unsigned char *pt, symmetric_key *skey)
 {
    int err = _rijndael_ecb_decrypt(ct, pt, skey);
    burn_stack(sizeof(unsigned long)*8 + sizeof(unsigned long*) + sizeof(int)*2);
@@ -723,24 +721,23 @@ int ECB_KS(int *keysize)
 {
    LTC_ARGCHK(keysize != NULL);
 
-   if (*keysize < 16) {
+   if (*keysize < 16)
       return CRYPT_INVALID_KEYSIZE;
-   }
    if (*keysize < 24) {
       *keysize = 16;
       return CRYPT_OK;
-   }
-   if (*keysize < 32) {
+   } else if (*keysize < 32) {
       *keysize = 24;
       return CRYPT_OK;
+   } else {
+      *keysize = 32;
+      return CRYPT_OK;
    }
-   *keysize = 32;
-   return CRYPT_OK;
 }
 
 #endif
 
 
-/* ref:         $Format:%D$ */
-/* git commit:  $Format:%H$ */
-/* commit time: $Format:%ai$ */
+/* ref:         tag: v1.18.2, master */
+/* git commit:  7e7eb695d581782f04b24dc444cbfde86af59853 */
+/* commit time: 2018-07-01 22:49:01 +0200 */
