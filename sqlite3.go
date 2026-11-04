@@ -1191,8 +1191,9 @@ func (c *SQLiteConn) begin(ctx context.Context) (driver.Tx, error) {
 //	  Specify the SQLCipher encryption key, as text without quotes.
 //
 //	vfs=nocurrenttime
-//	  Use a copy of the default VFS without the current time: 'now' and the
-//	  CURRENT_* keywords give NULL, so results do not depend on when a query runs.
+//	  Use a copy of the default VFS without the current time: 'now', date and
+//	  time functions without a time value and the CURRENT_* keywords give NULL,
+//	  so results do not depend on when a query runs.
 //
 //	_auto_vacuum=X | _vacuum=X
 //	  0 | none - Auto Vacuum disabled

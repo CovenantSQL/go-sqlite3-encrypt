@@ -23,7 +23,9 @@ static int noCurrentTimeInt64(sqlite3_vfs *vfs, sqlite3_int64 *now) {
 }
 
 // Register a copy of the default VFS named "nocurrenttime" whose current time
-// is unavailable.
+// is unavailable. The copy shares the methods and pAppData of the default VFS,
+// which suits the unix and win32 VFSes, but not a default VFS that checks its
+// own name or extends sqlite3_vfs.
 static int _sqlite3_register_no_current_time_vfs(void) {
   sqlite3_vfs *base = sqlite3_vfs_find(0);
   if (base == 0) {
@@ -47,9 +49,10 @@ import (
 )
 
 // noCurrentTimeVFS is the VFS that the DSN parameter vfs=nocurrenttime selects.
-// Date and time functions get no current time from it, so 'now' and the
-// CURRENT_* keywords give NULL, and every connection computes the same results
-// from the same data whenever it runs.
+// Date and time functions get no current time from it, so 'now', date and time
+// functions without a time value and the CURRENT_* keywords give NULL, and
+// their results do not depend on when a query runs. Without a current time,
+// SQLite also skips the profile callbacks of statements.
 const noCurrentTimeVFS = "nocurrenttime"
 
 var (

@@ -21,7 +21,9 @@ Pass the key in the DSN, `sql.Open("sqlite3", "file:test.db?_crypto_key=secret")
 For results that do not depend on when or where a query runs, as when several replicas execute the same statements:
 
 - `vfs=nocurrenttime` in the DSN uses a copy of the default VFS without the current time, so `'now'`, date and time functions called without a time value, and the `CURRENT_*` keywords give NULL.
-- The `sqlite_omit_localtime` build tag removes the `localtime` and `utc` modifiers, which depend on the time zone of the host; they give NULL as well.
+- The `sqlite_omit_localtime` build tag removes the `localtime` and `utc` modifiers, which depend on the time zone of the host; they give NULL as well. The tag only changes the bundled SQLite, so with the `libsqlite3` tag, opening a database fails unless the system SQLite is built with `SQLITE_OMIT_LOCALTIME`.
+
+Without a current time, a column declared `NOT NULL DEFAULT CURRENT_TIMESTAMP` cannot get its default, and inserts that rely on it fail. SQLite also skips the profile callbacks of statements, so `sqlite_trace` profile events and SQLCipher's `PRAGMA cipher_profile` report nothing.
 
 ## Changes from go-sqlite3
 
