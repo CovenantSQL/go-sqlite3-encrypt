@@ -1182,6 +1182,10 @@ func (c *SQLiteConn) begin(ctx context.Context) (driver.Tx, error) {
 //	_crypto_key=XXX
 //	  Specify the SQLCipher encryption key, as text without quotes.
 //
+//	vfs=nocurrenttime
+//	  Use a copy of the default VFS without the current time: 'now' and the
+//	  CURRENT_* keywords give NULL, so results do not depend on when a query runs.
+//
 //	_auto_vacuum=X | _vacuum=X
 //	  0 | none - Auto Vacuum disabled
 //	  1 | full - Auto Vacuum FULL
@@ -1636,6 +1640,11 @@ func (d *SQLiteDriver) Open(dsn string) (driver.Conn, error) {
 
 		if val := params.Get("vfs"); val != "" {
 			vfsName = val
+		}
+		if vfsName == noCurrentTimeVFS {
+			if err := registerNoCurrentTimeVFS(); err != nil {
+				return nil, err
+			}
 		}
 
 		if !strings.HasPrefix(dsn, "file:") {
