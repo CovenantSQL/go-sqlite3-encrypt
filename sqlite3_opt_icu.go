@@ -8,8 +8,8 @@
 package sqlite3
 
 /*
-#cgo LDFLAGS: -licuuc -licui18n
-#cgo CFLAGS: -DSQLITE_ENABLE_ICU
+#cgo LDFLAGS: -licui18n -licuuc -licudata -lm -lpthread -lstdc++
+#cgo CFLAGS: -DSQLITE_ENABLE_ICU -DU_STATIC_IMPLEMENTATION
 #cgo darwin,amd64 CFLAGS:  -I/usr/local/opt/icu4c/include
 #cgo darwin,amd64 LDFLAGS: -L/usr/local/opt/icu4c/lib
 #cgo darwin,arm64 CFLAGS:  -I/opt/homebrew/opt/icu4c/include
