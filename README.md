@@ -10,7 +10,7 @@ Pass the key in the DSN, `sql.Open("sqlite3", "file:test.db?_crypto_key=secret")
 ## Changes from go-sqlite3
 
 - `sqlite3-binding.c`, `sqlite3-binding.h` and `sqlite3ext.h` are generated from the SQLCipher sources.
-- The LibTomCrypt sources SQLCipher needs: the `tomcrypt*.h` headers and the `.c` files other than `sqlite3_opt_unlock_notify.c`.
+- The LibTomCrypt sources SQLCipher needs: the `tomcrypt*.h` headers and the `.c` files whose names do not start with `sqlite3`.
 - `sqlite3.go` defines the SQLCipher compile options and adds the `_crypto_key` DSN parameter.
 - `sqlite3_opt_icu.go` links ICU statically.
 
