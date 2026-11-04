@@ -2228,6 +2228,16 @@ func TestNotEnoughArgsErrorMessage(t *testing.T) {
 		}
 	})
 
+	t.Run("exec without args", func(t *testing.T) {
+		_, err := db.Exec("SELECT ?")
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if err.Error() != want {
+			t.Errorf("got %q, want %q", err.Error(), want)
+		}
+	})
+
 	t.Run("query", func(t *testing.T) {
 		_, err := db.Query("SELECT ?; SELECT ?", "hello")
 		if err == nil {
