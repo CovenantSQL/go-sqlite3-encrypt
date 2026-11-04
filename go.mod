@@ -1,4 +1,4 @@
-module github.com/mattn/go-sqlite3
+module github.com/CovenantSQL/go-sqlite3-encrypt
 
 go 1.21
 
