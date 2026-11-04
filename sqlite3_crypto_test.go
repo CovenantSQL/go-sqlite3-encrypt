@@ -71,7 +71,8 @@ func TestCryptoKey(t *testing.T) {
 }
 
 func TestCryptoKeyWithNUL(t *testing.T) {
-	db, err := sql.Open("sqlite3", "file:"+filepath.Join(t.TempDir(), "nul.db")+"?_crypto_key=secret%00part")
+	path := filepath.Join(t.TempDir(), "nul.db")
+	db, err := sql.Open("sqlite3", "file:"+path+"?_crypto_key=secret%00part")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,5 +83,8 @@ func TestCryptoKeyWithNUL(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "secret") {
 		t.Errorf("error shows the key: %v", err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("created the database file, stat error %v", err)
 	}
 }

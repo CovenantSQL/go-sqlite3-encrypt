@@ -1319,6 +1319,21 @@ func (d *SQLiteDriver) Open(dsn string) (driver.Conn, error) {
 
 		// _crypto_key
 		cryptoKey = params.Get("_crypto_key")
+		if cryptoKey != "" {
+			// Without SQLCipher, as with the libsqlite3 tag and a plain system SQLite,
+			// PRAGMA key does nothing and the database would be written in plain text.
+			hasCodec := C.CString("HAS_CODEC")
+			used := C.sqlite3_compileoption_used(hasCodec)
+			C.free(unsafe.Pointer(hasCodec))
+			if used == 0 {
+				return nil, errors.New("sqlite3: _crypto_key needs SQLite built with SQLCipher")
+			}
+			// A NUL would cut the PRAGMA key statement short, and the syntax error
+			// would show part of the key.
+			if strings.ContainsRune(cryptoKey, 0) {
+				return nil, errors.New("sqlite3: _crypto_key contains a NUL character")
+			}
+		}
 
 		// _txlock
 		if val := params.Get("_txlock"); val != "" {
@@ -1690,18 +1705,6 @@ func (d *SQLiteDriver) Open(dsn string) (driver.Conn, error) {
 
 	// crypto key must be specified BEFORE any other action
 	if cryptoKey != "" {
-		// Without SQLCipher, as with the libsqlite3 tag and a plain system SQLite,
-		// PRAGMA key does nothing and the database would be written in plain text.
-		hasCodec := C.CString("HAS_CODEC")
-		used := C.sqlite3_compileoption_used(hasCodec)
-		C.free(unsafe.Pointer(hasCodec))
-		if used == 0 {
-			return fail(errors.New("sqlite3: _crypto_key needs SQLite built with SQLCipher"))
-		}
-		// A NUL would cut the statement short, and the syntax error would show part of the key.
-		if strings.ContainsRune(cryptoKey, 0) {
-			return fail(errors.New("sqlite3: _crypto_key contains a NUL character"))
-		}
 		if err := exec(fmt.Sprintf("PRAGMA key = '%s'", strings.Replace(cryptoKey, "'", "''", -1))); err != nil {
 			return fail(err)
 		}
