@@ -6,7 +6,7 @@ endif
 all : $(TARGET)
 
 $(TARGET) : main.go
-	go build -ldflags="-X 'github.com/mattn/go-sqlite3.driverName=my-sqlite3'"
+	go build -ldflags="-X 'github.com/CovenantSQL/go-sqlite3-encrypt.driverName=my-sqlite3'"
 
 clean :
 	rm -f $(TARGET)

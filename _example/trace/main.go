@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 
-	sqlite3 "github.com/mattn/go-sqlite3"
+	sqlite3 "github.com/CovenantSQL/go-sqlite3-encrypt"
 )
 
 func traceCallback(info sqlite3.TraceInfo) int {

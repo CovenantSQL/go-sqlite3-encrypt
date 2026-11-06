@@ -5,7 +5,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/CovenantSQL/go-sqlite3-encrypt"
 	"log"
 	"os"
 )

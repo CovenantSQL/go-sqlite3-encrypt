@@ -7,7 +7,7 @@ import (
 	"math"
 	"math/rand"
 
-	sqlite "github.com/mattn/go-sqlite3"
+	sqlite "github.com/CovenantSQL/go-sqlite3-encrypt"
 )
 
 // Computes x^y

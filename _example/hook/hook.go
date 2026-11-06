@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/mattn/go-sqlite3"
+	"github.com/CovenantSQL/go-sqlite3-encrypt"
 )
 
 func main() {
