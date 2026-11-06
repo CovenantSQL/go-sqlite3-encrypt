@@ -2957,3 +2957,46 @@ func TestConnMethodsAfterClose(t *testing.T) {
 		}
 	})
 }
+
+// TestConnMethodsDuringClose calls a connection method from a callback
+// that SQLite runs while Close closes the connection: closing a connection
+// with an open transaction rolls it back and runs the rollback hook. Close
+// holds c.mu meanwhile, so a method that takes c.mu never returns.
+func TestConnMethodsDuringClose(t *testing.T) {
+	filename := TempFilename(t)
+	defer os.Remove(filename)
+	conn, err := (&SQLiteDriver{}).Open(filename)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := conn.(*SQLiteConn)
+	want := c.GetFilename("")
+	got := make(chan string, 1)
+	c.RegisterRollbackHook(func() {
+		select {
+		case got <- c.GetFilename(""):
+		default:
+		}
+	})
+	if _, err := c.Exec("BEGIN; CREATE TABLE foo (id INTEGER)", nil); err != nil {
+		t.Fatal(err)
+	}
+	closed := make(chan error, 1)
+	go func() { closed <- c.Close() }()
+	select {
+	case err := <-closed:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("Close did not return")
+	}
+	select {
+	case name := <-got:
+		if name != want {
+			t.Errorf("GetFilename() = %q, want %q", name, want)
+		}
+	default:
+		t.Error("the rollback hook did not run")
+	}
+}

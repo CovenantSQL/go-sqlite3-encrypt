@@ -680,6 +680,10 @@ func (tx *SQLiteTx) Rollback() error {
 // Close has already run. SQLite dereferences the connection handle
 // without checking it, so calling into it with a released handle
 // crashes the process instead of reporting an error.
+//
+// The methods check c.db without taking c.mu, as they already pass it to
+// SQLite without it: Close holds c.mu while SQLite runs callbacks such as
+// the rollback hook, and these may call the methods.
 var errConnClosed = errors.New("sqlite connection is already closed")
 
 // RegisterCollation makes a Go function available as a collation.
@@ -695,7 +699,7 @@ var errConnClosed = errors.New("sqlite connection is already closed")
 // If cmp does not obey these constraints, sqlite3's behavior is
 // undefined when the collation is used.
 func (c *SQLiteConn) RegisterCollation(name string, cmp func(string, string) int) error {
-	if !c.dbConnOpen() {
+	if c.db == nil {
 		return errConnClosed
 	}
 	handle := newHandle(c, cmp)
@@ -718,7 +722,7 @@ func (c *SQLiteConn) RegisterCollation(name string, cmp func(string, string) int
 //
 // The call is a no-op once the connection has been closed.
 func (c *SQLiteConn) RegisterCommitHook(callback func() int) {
-	if !c.dbConnOpen() {
+	if c.db == nil {
 		return
 	}
 	if callback == nil {
@@ -736,7 +740,7 @@ func (c *SQLiteConn) RegisterCommitHook(callback func() int) {
 //
 // The call is a no-op once the connection has been closed.
 func (c *SQLiteConn) RegisterRollbackHook(callback func()) {
-	if !c.dbConnOpen() {
+	if c.db == nil {
 		return
 	}
 	if callback == nil {
@@ -758,7 +762,7 @@ func (c *SQLiteConn) RegisterRollbackHook(callback func()) {
 //
 // The call is a no-op once the connection has been closed.
 func (c *SQLiteConn) RegisterUpdateHook(callback func(int, string, string, int64)) {
-	if !c.dbConnOpen() {
+	if c.db == nil {
 		return
 	}
 	if callback == nil {
@@ -777,7 +781,7 @@ func (c *SQLiteConn) RegisterUpdateHook(callback func(int, string, string, int64
 //
 // The call is a no-op once the connection has been closed.
 func (c *SQLiteConn) RegisterAuthorizer(callback func(int, string, string, string) int) {
-	if !c.dbConnOpen() {
+	if c.db == nil {
 		return
 	}
 	if callback == nil {
@@ -803,7 +807,7 @@ func (c *SQLiteConn) RegisterAuthorizer(callback func(int, string, string, strin
 //
 // See _example/go_custom_funcs for a detailed example.
 func (c *SQLiteConn) RegisterFunc(name string, impl any, pure bool) error {
-	if !c.dbConnOpen() {
+	if c.db == nil {
 		return errConnClosed
 	}
 	var fi functionInfo
@@ -888,7 +892,7 @@ func sqlite3CreateFunction(db *C.sqlite3, zFunctionName *C.char, nArg C.int, eTe
 //
 // See _example/go_custom_funcs for a detailed example.
 func (c *SQLiteConn) RegisterAggregator(name string, impl any, pure bool) error {
-	if !c.dbConnOpen() {
+	if c.db == nil {
 		return errConnClosed
 	}
 	var ai aggInfo
@@ -2223,7 +2227,7 @@ const (
 // It returns an empty string once the connection has been closed.
 // See: sqlite3_db_filename, https://www.sqlite.org/c3ref/db_filename.html
 func (c *SQLiteConn) GetFilename(schemaName string) string {
-	if !c.dbConnOpen() {
+	if c.db == nil {
 		return ""
 	}
 	if schemaName == "" {
@@ -2238,7 +2242,7 @@ func (c *SQLiteConn) GetFilename(schemaName string) string {
 // It returns -1 once the connection has been closed.
 // See: sqlite3_limit, http://www.sqlite.org/c3ref/limit.html
 func (c *SQLiteConn) GetLimit(id int) int {
-	if !c.dbConnOpen() {
+	if c.db == nil {
 		return -1
 	}
 	return int(C._sqlite3_limit(c.db, C.int(id), C.int(-1)))
@@ -2249,7 +2253,7 @@ func (c *SQLiteConn) GetLimit(id int) int {
 // It returns -1 once the connection has been closed.
 // See: sqlite3_limit, http://www.sqlite.org/c3ref/limit.html
 func (c *SQLiteConn) SetLimit(id int, newVal int) int {
-	if !c.dbConnOpen() {
+	if c.db == nil {
 		return -1
 	}
 	return int(C._sqlite3_limit(c.db, C.int(id), C.int(newVal)))
@@ -2268,7 +2272,7 @@ func (c *SQLiteConn) SetLimit(id int, newVal int) int {
 //
 // See: sqlite3_file_control, https://www.sqlite.org/c3ref/file_control.html
 func (c *SQLiteConn) SetFileControlInt(dbName string, op int, arg int) error {
-	if !c.dbConnOpen() {
+	if c.db == nil {
 		return errConnClosed
 	}
 	if dbName == "" {
@@ -2299,7 +2303,7 @@ func (c *SQLiteConn) SetFileControlInt(dbName string, op int, arg int) error {
 //
 // See: sqlite3_file_control, https://www.sqlite.org/c3ref/file_control.html
 func (c *SQLiteConn) SetFileControlInt64(dbName string, op int, arg int64) error {
-	if !c.dbConnOpen() {
+	if c.db == nil {
 		return errConnClosed
 	}
 	if dbName == "" {
