@@ -5,9 +5,10 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	_ "github.com/CovenantSQL/go-sqlite3-encrypt"
 	"log"
 	"os"
+
+	_ "github.com/CovenantSQL/go-sqlite3-encrypt"
 )
 
 type Tag struct {
