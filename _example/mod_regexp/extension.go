@@ -3,8 +3,9 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"github.com/mattn/go-sqlite3"
 	"log"
+
+	"github.com/CovenantSQL/go-sqlite3-encrypt"
 )
 
 func main() {
