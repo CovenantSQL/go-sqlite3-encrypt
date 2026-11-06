@@ -27,27 +27,19 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
 
-      - name: Get Build Tools
-        run: |
-          GO111MODULE=on go install github.com/ory/go-acc@latest
-
-      - name: Add $GOPATH/bin to $PATH
-        run: |
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-
       - uses: actions/checkout@v6
 
       - name: 'Tags: default'
-        run: go-acc . -- -race -v -tags ""
+        run: go test -race -v -coverprofile=coverage.txt -tags ""
 
       - name: 'Tags: libsqlite3'
-        run: go-acc . -- -race -v -tags "libsqlite3"
+        run: go test -race -v -coverprofile=coverage.txt -tags "libsqlite3"
 
       - name: 'Tags: full'
-        run: go-acc . -- -race -v -tags "sqlite_allow_uri_authority sqlite_app_armor sqlite_column_metadata sqlite_foreign_keys sqlite_fts5 sqlite_icu sqlite_introspect sqlite_json sqlite_math_functions sqlite_os_trace sqlite_preupdate_hook sqlite_secure_delete sqlite_see sqlite_stat4 sqlite_trace sqlite_unlock_notify sqlite_vacuum_incr sqlite_vtable"
+        run: go test -race -v -coverprofile=coverage.txt -tags "sqlite_allow_uri_authority sqlite_app_armor sqlite_column_metadata sqlite_foreign_keys sqlite_fts5 sqlite_icu sqlite_introspect sqlite_json sqlite_math_functions sqlite_os_trace sqlite_preupdate_hook sqlite_secure_delete sqlite_see sqlite_stat4 sqlite_trace sqlite_unlock_notify sqlite_vacuum_incr sqlite_vtable"
 
       - name: 'Tags: vacuum'
-        run: go-acc . -- -race -v -tags "sqlite_vacuum_full"
+        run: go test -race -v -coverprofile=coverage.txt -tags "sqlite_vacuum_full"
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
