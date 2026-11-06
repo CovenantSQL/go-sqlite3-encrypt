@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/mattn/go-sqlite3"
+	"github.com/CovenantSQL/go-sqlite3-encrypt"
 )
 
 type githubRepo struct {
