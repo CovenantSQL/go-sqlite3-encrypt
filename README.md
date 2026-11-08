@@ -32,6 +32,7 @@ Without a current time, a column declared `NOT NULL DEFAULT CURRENT_TIMESTAMP` c
 - `sqlite3.go` defines the SQLCipher compile options, turns off the default logging of SQLCipher to stderr, and adds the `_crypto_key` DSN parameter.
 - `Exec` without arguments reports missing arguments again, which go-sqlite3 v1.14.52 does not.
 - `sqlite3_nocurrenttime.go` adds the `nocurrenttime` VFS, and `sqlite3_opt_omit_localtime.go` the `sqlite_omit_localtime` tag.
+- `SQLiteDriver.SingleStatement` refuses a query string that holds more than one statement with `ErrMultipleStatements`, before any of it runs.
 - `sqlite3_opt_icu.go` adds the libraries that a static link of ICU needs.
 - The CIFuzz workflow, which builds the OSS-Fuzz project of go-sqlite3, is removed.
 

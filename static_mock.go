@@ -21,8 +21,9 @@ func init() {
 
 type (
 	SQLiteDriver struct {
-		Extensions  []string
-		ConnectHook func(*SQLiteConn) error
+		Extensions      []string
+		ConnectHook     func(*SQLiteConn) error
+		SingleStatement bool
 	}
 	SQLiteConn struct{}
 )
