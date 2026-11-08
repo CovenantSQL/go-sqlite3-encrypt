@@ -6,7 +6,9 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 	"testing"
+	"time"
 )
 
 func init() {
@@ -129,16 +131,24 @@ func TestSingleStatement(t *testing.T) {
 				"INSERT INTO r VALUES (? || '; SELECT 2');",
 				"INSERT INTO r VALUES (?);\x00SELECT 2",
 			} {
-				before := count()
-				for call, err := range singleStatementCalls(db, query, 1) {
-					if err != nil {
-						t.Errorf("%s(%q): %v", call, query, err)
+				for _, q := range []struct {
+					query string
+					args  []any
+				}{
+					{query, []any{1}},
+					{strings.ReplaceAll(query, "?", "1"), nil},
+				} {
+					before := count()
+					for call, err := range singleStatementCalls(db, q.query, q.args...) {
+						if err != nil {
+							t.Errorf("%s(%q): %v", call, q.query, err)
+						}
 					}
-				}
-				// Exec, ExecContext, Prepare, PrepareContext and Tx insert;
-				// Query and QueryContext do too, as they step the INSERT.
-				if n := count() - before; n != 7 {
-					t.Errorf("%q inserted %d rows, want 7", query, n)
+					// Exec, ExecContext, Prepare, PrepareContext and Tx insert;
+					// Query and QueryContext do too, as they step the INSERT.
+					if n := count() - before; n != 7 {
+						t.Errorf("%q inserted %d rows, want 7", q.query, n)
+					}
 				}
 			}
 
@@ -153,6 +163,42 @@ func TestSingleStatement(t *testing.T) {
 				t.Errorf("the trigger inserted %d rows, want 2", n)
 			}
 		})
+	}
+}
+
+// TestSingleStatementCancel cancels the context of a call during and after
+// it, and checks that nothing beyond the first statement ran.
+func TestSingleStatementCancel(t *testing.T) {
+	db := openSingleStatement(t, ":memory:")
+	counts := func() (r, s int) {
+		t.Helper()
+		if err := db.QueryRow("SELECT (SELECT count(*) FROM r), (SELECT count(*) FROM s)").Scan(&r, &s); err != nil {
+			t.Fatal(err)
+		}
+		return r, s
+	}
+	const slow = "INSERT INTO r WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c) SELECT x FROM c LIMIT 100000000"
+
+	for _, q := range []string{slow + "; INSERT INTO s VALUES (1)", slow + "; -- INSERT INTO s VALUES (1)"} {
+		ctx, cancel := context.WithCancel(context.Background())
+		time.AfterFunc(50*time.Millisecond, cancel)
+		_, err := db.ExecContext(ctx, q)
+		<-ctx.Done()
+		if err == nil {
+			t.Errorf("%q: no error", q)
+		}
+		if r, s := counts(); r != 0 || s != 0 {
+			t.Errorf("%q: r has %d rows and s %d, want none", q, r, s)
+		}
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	if _, err := db.ExecContext(ctx, "INSERT INTO r VALUES (1); -- INSERT INTO s VALUES (1)"); err != nil {
+		t.Fatal(err)
+	}
+	cancel()
+	if r, s := counts(); r != 1 || s != 0 {
+		t.Errorf("r has %d rows and s %d, want 1 and 0", r, s)
 	}
 }
 
