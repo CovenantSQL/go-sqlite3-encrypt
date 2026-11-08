@@ -483,6 +483,17 @@ const (
 type SQLiteDriver struct {
 	Extensions  []string
 	ConnectHook func(*SQLiteConn) error
+	// SingleStatement makes the connections refuse, with
+	// ErrMultipleStatements, a query string that holds more than one SQL
+	// statement, in Exec, Query and Prepare alike. Leading empty statements
+	// and trailing semicolons, whitespace and comments are allowed. The
+	// check runs when the first statement is prepared: no statement of a
+	// refused string is stepped, and the rest of the string is never
+	// compiled on the connection. A statement that acts when it is
+	// prepared, such as PRAGMA case_sensitive_like or SQLCipher's PRAGMA
+	// key and rekey, still acts when it is the first statement of a
+	// refused string.
+	SingleStatement bool
 }
 
 // SQLiteConn implements driver.Conn.
@@ -509,6 +520,8 @@ type SQLiteConn struct {
 	// only field safe to read without the lock.
 	stmtCache        []*SQLiteStmt
 	stmtCacheEnabled bool
+	// singleStatement is SQLiteDriver.SingleStatement, immutable after Open.
+	singleStatement bool
 }
 
 // SQLiteTx implements driver.Tx.
@@ -1064,8 +1077,9 @@ func (c *SQLiteConn) Exec(query string, args []driver.Value) (driver.Result, err
 }
 
 func (c *SQLiteConn) exec(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-	// Fast path: no args, no context cancellation → single CGO call per statement
-	if len(args) == 0 && ctx.Done() == nil {
+	// Fast path: no args, no context cancellation → single CGO call per statement.
+	// It steps each statement before Go sees the rest of the string.
+	if len(args) == 0 && ctx.Done() == nil && !c.singleStatement {
 		return c.execNoArgs(query)
 	}
 
@@ -1752,7 +1766,7 @@ func (d *SQLiteDriver) Open(dsn string) (driver.Conn, error) {
 	}
 
 	// Create connection to SQLite
-	conn := &SQLiteConn{db: db, loc: loc, txlock: txlock}
+	conn := &SQLiteConn{db: db, loc: loc, txlock: txlock, singleStatement: d.SingleStatement}
 	if stmtCacheSize > 0 {
 		conn.stmtCache = make([]*SQLiteStmt, 0, stmtCacheSize)
 		conn.stmtCacheEnabled = true
@@ -2201,7 +2215,18 @@ func (c *SQLiteConn) prepare(ctx context.Context, query string) (driver.Stmt, er
 		return nil, c.lastError()
 	}
 	var t string
-	if tail != nil && *tail != '\000' {
+	if c.singleStatement {
+		// SQLite skips leading empty statements and stops after the first
+		// statement. Check the rest as SQLite reads it, without preparing it.
+		var rest string
+		if tail != nil {
+			rest = query[uintptr(unsafe.Pointer(tail))-uintptr(unsafe.Pointer(pquery)):]
+		}
+		if !onlySQLiteTrivia(rest) {
+			C.sqlite3_finalize(s)
+			return nil, ErrMultipleStatements
+		}
+	} else if tail != nil && *tail != '\000' {
 		t = strings.TrimSpace(C.GoString(tail))
 	}
 	ss := &SQLiteStmt{c: c, s: s, t: t}
