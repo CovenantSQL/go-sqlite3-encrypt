@@ -2216,25 +2216,15 @@ func (c *SQLiteConn) prepare(ctx context.Context, query string) (driver.Stmt, er
 	}
 	var t string
 	if c.singleStatement {
-		// Check the rest of the string as SQLite reads it, and never prepare
-		// it once a statement has been prepared.
-		for {
-			var rest string
-			if tail != nil {
-				rest = query[uintptr(unsafe.Pointer(tail))-uintptr(unsafe.Pointer(pquery)):]
-			}
-			if onlySQLiteTrivia(rest) {
-				break
-			}
-			if s != nil {
-				C.sqlite3_finalize(s)
-				return nil, ErrMultipleStatements
-			}
-			// Only empty statements so far: the rest starts with the first one.
-			rv = C._sqlite3_prepare_v2_internal(c.db, tail, C.int(len(rest)), &s, &tail)
-			if rv != C.SQLITE_OK {
-				return nil, c.lastError()
-			}
+		// SQLite skips leading empty statements and stops after the first
+		// statement. Check the rest as SQLite reads it, without preparing it.
+		var rest string
+		if tail != nil {
+			rest = query[uintptr(unsafe.Pointer(tail))-uintptr(unsafe.Pointer(pquery)):]
+		}
+		if !onlySQLiteTrivia(rest) {
+			C.sqlite3_finalize(s)
+			return nil, ErrMultipleStatements
 		}
 	} else if tail != nil && *tail != '\000' {
 		t = strings.TrimSpace(C.GoString(tail))

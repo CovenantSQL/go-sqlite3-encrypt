@@ -46,24 +46,24 @@ func singleStatementCalls(db *sql.DB, query string, args ...any) map[string]erro
 		"QueryContext": func() (*sql.Rows, error) { return db.QueryContext(ctx, query, args...) },
 	} {
 		rows, err := run()
+		errs[name] = err
 		if err == nil {
 			for rows.Next() {
 			}
-			err = rows.Err()
+			errs[name+" rows"] = rows.Err()
 			rows.Close()
 		}
-		errs[name] = err
 	}
 	for name, prepare := range map[string]func() (*sql.Stmt, error){
 		"Prepare":        func() (*sql.Stmt, error) { return db.Prepare(query) },
 		"PrepareContext": func() (*sql.Stmt, error) { return db.PrepareContext(ctx, query) },
 	} {
 		stmt, err := prepare()
+		errs[name] = err
 		if err == nil {
-			_, err = stmt.Exec(args...)
+			_, errs[name+" Exec"] = stmt.Exec(args...)
 			stmt.Close()
 		}
-		errs[name] = err
 	}
 	tx, err := db.BeginTx(ctx, nil)
 	if err == nil {
@@ -97,6 +97,7 @@ func TestSingleStatement(t *testing.T) {
 				{"INSERT INTO r VALUES (?); INSERT INTO r VALUES (?)", []any{1, 2}},
 				{"INSERT INTO r VALUES (1); x", nil},
 				{"INSERT INTO r VALUES (1); /* outer /* inner */ SELECT 2; -- */", nil},
+				{"INSERT INTO r VALUES (1); --x\nSELECT 2", nil},
 				{"INSERT INTO r VALUES (1); /*", nil},
 				{"INSERT INTO r VALUES (1);\v", nil},
 				{"CREATE TABLE d (v); SELECT 1", nil},
@@ -124,6 +125,9 @@ func TestSingleStatement(t *testing.T) {
 				"INSERT INTO r VALUES (?); /*x",
 				"INSERT INTO r VALUES (?); \v",
 				"INSERT INTO r VALUES (?);\xef\xbb\xbf",
+				"INSERT INTO r VALUES (?); --x\rSELECT 2",
+				"INSERT INTO r VALUES (? || '; SELECT 2');",
+				"INSERT INTO r VALUES (?);\x00SELECT 2",
 			} {
 				before := count()
 				for call, err := range singleStatementCalls(db, query, 1) {

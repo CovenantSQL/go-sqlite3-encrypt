@@ -37,7 +37,7 @@ func onlySQLiteTrivia(s string) bool {
 			// Up to the first "*/" or the end; comments do not nest. A "/*"
 			// at the very end is a slash and a star, not a comment.
 			j := strings.Index(s[i+2:], "*/")
-			if n := strings.IndexByte(s[i+2:], 0); j < 0 || n >= 0 && n < j {
+			if j < 0 || strings.IndexByte(s[i+2:i+2+j], 0) >= 0 {
 				return true
 			}
 			i += 2 + j + 2
